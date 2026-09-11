@@ -8,7 +8,7 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get('/tailors', requireRole('client'), appointmentController.listTailors);
+router.get('/tailors', appointmentController.listTailors);
 router.get('/', appointmentController.list);
 router.post('/', requireRole('client'), validate(createAppointment), appointmentController.create);
 router.patch('/:id/status', requireRole('tailor'), validate(updateAppointmentStatus), appointmentController.updateStatus);

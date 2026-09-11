@@ -9,5 +9,9 @@ router.use('/stylist', require('./stylistRoutes'));
 router.use('/tailor', require('./tailorRoutes'));
 router.use('/delivery', require('./deliveryRoutes'));
 router.use('/admin', require('./adminRoutes'));
+router.use('/users', require('./userRoutes'));
+router.use('/notifications', require('./notificationsRoutes'));
+router.use('/messaging', require('./messagingRoutes'));
+router.use('/support', require('./supportRoutes'));
 
 module.exports = router;

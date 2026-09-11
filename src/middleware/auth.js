@@ -24,7 +24,7 @@ const authenticate = catchAsync(async (req, res, next) => {
   }
 
   const user = await User.findById(payload.id);
-  if (!user) throw ApiError.unauthorized('Invalid or expired token');
+  if (!user || !user.active) throw ApiError.unauthorized('Invalid or expired token');
 
   req.user = user;
   next();

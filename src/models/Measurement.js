@@ -14,4 +14,9 @@ const MeasurementSchema = new Schema({
   scannedAt: { type: Date, default: Date.now },
 });
 
+// Every "latest measurement for user" query filters by userId and sorts by
+// scannedAt — a compound index lets that be an index scan instead of a
+// collection scan.
+MeasurementSchema.index({ userId: 1, scannedAt: -1 });
+
 module.exports = model('Measurement', MeasurementSchema);
