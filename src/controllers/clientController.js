@@ -1,9 +1,10 @@
-const { Measurement, Order, User } = require('../models');
+const { BodyScanDraft, Measurement, Order, User } = require('../models');
 const ApiError = require('../utils/ApiError');
 const { ok } = require('../utils/apiResponse');
 const catchAsync = require('../utils/catchAsync');
 const { notify } = require('./notificationsController');
 const { appendNegotiationEntry } = require('../utils/negotiation');
+const { publicScan } = require('./bodyScanController');
 
 const measurements = catchAsync(async (req, res) => {
   const latest = await Measurement.findOne({ userId: req.user._id }).sort({ scannedAt: -1 });
@@ -11,8 +12,8 @@ const measurements = catchAsync(async (req, res) => {
 });
 
 const saveMeasurements = catchAsync(async (req, res) => {
-  const { shoulder, chest, waist, hip, inseam, thigh, armLength, height, morphology } = req.body;
-  const measurement = await Measurement.create({
+  const { shoulder, chest, waist, hip, inseam, thigh, armLength, height, morphology, draftId } = req.body;
+  const doc = {
     userId: req.user._id,
     shoulder,
     chest,
@@ -24,13 +25,44 @@ const saveMeasurements = catchAsync(async (req, res) => {
     height,
     morphology,
     scannedAt: new Date(),
-  });
+  };
 
-  if (morphology) {
-    await User.findByIdAndUpdate(req.user._id, { morphology });
+  // Saving the result of a photo/live scan: method, confidence, warnings and
+  // the stored photos come from the server-side draft, never the request.
+  // The draft is claimed atomically so a double-submit can't attach the same
+  // photos to two scans (which would make deleting one scan's photos break
+  // the other).
+  let draft = null;
+  if (draftId) {
+    draft = await BodyScanDraft.findOneAndDelete({
+      _id: draftId,
+      userId: req.user._id,
+      expiresAt: { $gt: new Date() },
+      analysis: { $exists: true },
+    });
+    if (!draft) throw ApiError.notFound('This scan has expired or was not analysed yet. Please run the analysis again.');
+    doc.method = draft.method;
+    doc.confidence = draft.analysis.overallConfidence;
+    doc.warnings = draft.analysis.warnings;
+    doc.photos = draft.photos;
+    if (!doc.morphology) doc.morphology = draft.analysis.morphology;
   }
 
-  return ok(res, measurement);
+  let measurement;
+  try {
+    measurement = await Measurement.create(doc);
+  } catch (err) {
+    // Put the draft back so the user can retry the save (and its photos
+    // aren't orphaned without an owner document).
+    if (draft) await BodyScanDraft.create(draft.toObject()).catch(() => {});
+    throw err;
+  }
+
+  if (measurement.morphology) {
+    await User.findByIdAndUpdate(req.user._id, { morphology: measurement.morphology });
+  }
+
+  return ok(res, publicScan(req, measurement));
 });
 
 const orders = catchAsync(async (req, res) => {

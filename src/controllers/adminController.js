@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const { Order, User, AdminActionLog } = require('../models');
+const { Order, User, AdminActionLog, Measurement, BodyScanDraft } = require('../models');
+const { removeScanFiles } = require('../utils/bodyScanFiles');
 const ApiError = require('../utils/ApiError');
 const { ok, created } = require('../utils/apiResponse');
 const catchAsync = require('../utils/catchAsync');
@@ -182,6 +183,15 @@ const deleteUser = catchAsync(async (req, res) => {
   await ensureNotLastActiveAdmin(target);
   const { email } = target;
   await User.findByIdAndDelete(target._id);
+
+  // A deleted account must not leave its body photos behind on disk. Only the
+  // stored images (and unsaved drafts) go; the Measurement documents are left
+  // exactly as before this feature existed, minus the now-dead photo refs.
+  const scans = await Measurement.find({ userId: target._id, 'photos.0': { $exists: true } }).select('photos');
+  const drafts = await BodyScanDraft.find({ userId: target._id });
+  removeScanFiles([...scans, ...drafts].flatMap((doc) => doc.photos.map((p) => p.file)));
+  await BodyScanDraft.deleteMany({ userId: target._id });
+  await Measurement.updateMany({ userId: target._id }, { $unset: { photos: 1 } });
 
   logAdminAction({ adminId: req.user._id, action: 'user.delete', targetType: 'User', targetId: target._id, detail: email });
   return ok(res, { success: true });

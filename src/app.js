@@ -13,6 +13,7 @@ const { UPLOAD_ROOT } = require('./middleware/upload');
 const { authenticate } = require('./middleware/auth');
 const { serveAttachment } = require('./controllers/messagingController');
 const { serveAttachment: serveSupportAttachment } = require('./controllers/supportController');
+const { serveScanPhoto } = require('./controllers/bodyScanController');
 
 const app = express();
 
@@ -32,6 +33,8 @@ app.get('/health', getHealth);
 app.use('/uploads/avatars', express.static(path.join(UPLOAD_ROOT, 'avatars')));
 app.get('/uploads/attachments/:filename', authenticate, serveAttachment);
 app.get('/uploads/support/:filename', authenticate, serveSupportAttachment);
+// Body-scan photos: owner only (see bodyScanController.serveScanPhoto).
+app.get('/uploads/bodyscans/:filename', authenticate, serveScanPhoto);
 
 app.use('/api/v1', routes);
 

@@ -33,4 +33,29 @@ module.exports = {
 
   /** Hours a verification / password-reset link stays valid. */
   emailTokenTtlHours: parseInt(process.env.EMAIL_TOKEN_TTL_HOURS, 10) || 24,
+
+  /** Body Scan AI analysis (see services/geminiBodyScanService.js). Server
+   * side only — the key must never reach the frontend. Left unset, the
+   * analyze endpoint answers 503 instead of pretending to work. */
+  gemini: {
+    apiKey: process.env.GEMINI_API_KEY || '',
+    model: process.env.GEMINI_MODEL || 'gemini-3.6-flash',
+    apiBase: (process.env.GEMINI_API_BASE || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, ''),
+    // One overall deadline for an analysis INCLUDING retries (see
+    // generateWithRetry) — the longest a user is ever asked to wait.
+    timeoutMs: parseInt(process.env.GEMINI_TIMEOUT_MS, 10) || 75000,
+    // Tried in order after the primary model keeps answering 503/429 "high
+    // demand" or hangs. Quality-first, with the fast lite model as the last
+    // resort so a scan still completes when the bigger models are overloaded
+    // (measured: lite 3-5s and reliably available; 3.5/3.6-flash 12-50s and
+    // frequently 503). Comma-separated; `none` disables fallbacks.
+    fallbackModels:
+      process.env.GEMINI_FALLBACK_MODELS === 'none'
+        ? []
+        : (process.env.GEMINI_FALLBACK_MODELS || 'gemini-3.5-flash,gemini-3.5-flash-lite').split(',').map((s) => s.trim()).filter(Boolean),
+    // Newer Gemini models "think" before answering, which adds many seconds
+    // to a photo analysis (measured 12s at 'minimal' vs 20-50s at 'low').
+    // Set GEMINI_THINKING_LEVEL=none to omit the setting entirely.
+    thinkingLevel: process.env.GEMINI_THINKING_LEVEL === 'none' ? '' : process.env.GEMINI_THINKING_LEVEL || 'minimal',
+  },
 };

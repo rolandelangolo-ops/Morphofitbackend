@@ -8,4 +8,5 @@ module.exports = {
   Message: require('./Message'),
   SupportRequest: require('./SupportRequest'),
   AdminActionLog: require('./AdminActionLog'),
+  BodyScanDraft: require('./BodyScanDraft'),
 };
