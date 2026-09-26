@@ -38,8 +38,22 @@ function getTransporter() {
  * not fail the API request that triggered it (an order status change still
  * succeeded even if the notification email bounced). Returns true only if
  * the message was actually handed to a real SMTP server. */
+/** True when the recipient's domain is on the skip list (see env.smtp
+ * skipDomains) — used to avoid mailing the fake demo addresses. */
+function isUndeliverableDomain(to) {
+  const domain = String(to).split('@').pop()?.toLowerCase();
+  return Boolean(domain && smtp.skipDomains.includes(domain));
+}
+
 async function sendMail({ to, subject, html, text }) {
   if (!to) return false;
+
+  if (isUndeliverableDomain(to)) {
+    // Logged rather than silent, so this never looks like "email is broken".
+    console.log(`[mail:skipped] to=${to} subject="${subject}" (domain on MAIL_SKIP_DOMAINS — would hard-bounce)`);
+    return false;
+  }
+
   try {
     const tx = getTransporter();
     const info = await tx.sendMail({ from: smtp.from, to, subject, html, text });

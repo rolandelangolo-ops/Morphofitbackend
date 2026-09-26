@@ -29,6 +29,16 @@ module.exports = {
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
     from: process.env.SMTP_FROM || 'MorphoFit <no-reply@morphofit.com>',
+    // Recipient domains that are known not to exist, so mail to them is
+    // dropped before it reaches the SMTP server. The seeded demo accounts
+    // (client@morphofit.com etc.) are the reason this exists: morphofit.com
+    // has no MX record, so every demo notification would hard-bounce back
+    // into the sending mailbox and count against its sending reputation.
+    // Set MAIL_SKIP_DOMAINS= (empty) to deliver to everything.
+    skipDomains: (process.env.MAIL_SKIP_DOMAINS ?? 'morphofit.com')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean),
   },
 
   /** Hours a verification / password-reset link stays valid. */
